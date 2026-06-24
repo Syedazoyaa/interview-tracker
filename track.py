@@ -15,67 +15,76 @@ from reportlab.lib.styles import getSampleStyleSheet
 # =====================================================
 
 st.set_page_config(
-    page_title="Interview Management Portal",
+    page_title="Interview Portal",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # =====================================================
-# CUSTOM CSS
+# CSS
 # =====================================================
 
 st.markdown("""
 <style>
 
-/* Hide Streamlit UI */
+/* Hide Streamlit stuff */
 #MainMenu {visibility:hidden;}
 footer {visibility:hidden;}
 header {visibility:hidden;}
 
+[data-testid="stToolbar"]{
+    display:none;
+}
+
+/* Reduce top spacing */
 .block-container{
-    padding-top:1rem;
-    padding-bottom:1rem;
-    max-width:1400px;
+    padding-top:0.5rem !important;
+    padding-bottom:0rem !important;
+    padding-left:1.5rem !important;
+    padding-right:1.5rem !important;
+    max-width:100% !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"]{
+    gap:10px;
+}
+
+.stTabs [data-baseweb="tab"]{
+    height:50px;
+    border-radius:8px;
+    padding-left:20px;
+    padding-right:20px;
+    font-weight:600;
 }
 
 /* Buttons */
-.stButton button{
-    background-color:#00ABB2;
-    color:white;
-    border:none;
-    border-radius:10px;
-    height:3rem;
-    font-weight:600;
-}
-
-.stButton button:hover{
-    background-color:#00929a;
-    color:white;
-}
-
-/* Download Button */
+.stButton button,
 .stDownloadButton button{
-    background-color:#00ABB2;
+    background:#00ABB2;
     color:white;
     border:none;
     border-radius:10px;
-    height:3rem;
+    height:48px;
     font-weight:600;
+    width:100%;
 }
 
-/* Radio Buttons */
+.stButton button:hover,
+.stDownloadButton button:hover{
+    background:#00939A;
+    color:white;
+}
+
+/* Remove excess margins */
+h1,h2,h3{
+    margin-top:0 !important;
+}
+
+/* Radio spacing */
 div[role="radiogroup"]{
-    gap:20px;
-}
-
-/* Section Cards */
-.card{
-    background:white;
-    padding:20px;
-    border-radius:15px;
-    border:1px solid #E5E7EB;
-    box-shadow:0 2px 8px rgba(0,0,0,0.05);
+    gap:15px;
 }
 
 </style>
@@ -91,7 +100,7 @@ GOOGLE_SHEET_URL = (
 )
 
 # =====================================================
-# PDF GENERATOR
+# PDF FUNCTION
 # =====================================================
 
 def generate_pdf(data):
@@ -104,86 +113,71 @@ def generate_pdf(data):
 
     content = []
 
-    title = Paragraph(
-        "Candidate Interview Assessment Report",
-        styles["Title"]
+    content.append(
+        Paragraph(
+            "Candidate Interview Assessment Report",
+            styles["Title"]
+        )
     )
 
-    content.append(title)
-    content.append(Spacer(1, 20))
+    content.append(Spacer(1, 15))
 
-    candidate_table = Table(
-        [
-            ["Candidate Name", data["candidate_name"]],
-            ["Role", data["position"]],
-            ["Interview Date", data["date"]],
-            ["Recommendation", data["recommendation"]],
-        ],
-        colWidths=[180, 300],
-    )
+    candidate_table = Table([
+        ["Candidate Name", data["candidate_name"]],
+        ["Role", data["position"]],
+        ["Interview Date", data["date"]],
+        ["Recommendation", data["recommendation"]],
+    ])
 
-    candidate_table.setStyle(
-        TableStyle([
-            ("GRID", (0,0), (-1,-1), 1, colors.black),
-            ("BACKGROUND", (0,0), (0,-1), colors.lightgrey),
-        ])
-    )
+    candidate_table.setStyle(TableStyle([
+        ("GRID",(0,0),(-1,-1),1,colors.black),
+        ("BACKGROUND",(0,0),(0,-1),colors.lightgrey)
+    ]))
 
     content.append(candidate_table)
-    content.append(Spacer(1, 20))
 
-    score_table = Table(
-        [
-            ["Evaluation Area", "Score / 10"],
-            ["Communication", data["communication"]],
-            ["Technical Skills", data["technical"]],
-            ["Problem Solving", data["problem_solving"]],
-            ["Confidence", data["confidence"]],
-            ["Learning Ability", data["learning"]],
-            ["Team Fit", data["team_fit"]],
-        ]
-    )
+    content.append(Spacer(1,15))
 
-    score_table.setStyle(
-        TableStyle([
-            ("GRID", (0,0), (-1,-1), 1, colors.black),
-            ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-        ])
-    )
+    score_table = Table([
+        ["Criteria","Score"],
+        ["Communication", data["communication"]],
+        ["Technical Skills", data["technical"]],
+        ["Problem Solving", data["problem_solving"]],
+        ["Confidence", data["confidence"]],
+        ["Learning Ability", data["learning"]],
+        ["Team Fit", data["team_fit"]],
+    ])
+
+    score_table.setStyle(TableStyle([
+        ("GRID",(0,0),(-1,-1),1,colors.black),
+        ("BACKGROUND",(0,0),(-1,0),colors.lightgrey)
+    ]))
 
     content.append(score_table)
-    content.append(Spacer(1, 20))
+
+    content.append(Spacer(1,15))
 
     content.append(
         Paragraph(
-            f"<b>Strengths</b><br/>{data['strengths']}",
+            f"<b>Strengths:</b><br/>{data['strengths']}",
             styles["BodyText"]
         )
     )
 
-    content.append(Spacer(1, 10))
+    content.append(Spacer(1,10))
 
     content.append(
         Paragraph(
-            f"<b>Areas of Improvement</b><br/>{data['improvements']}",
+            f"<b>Areas of Improvement:</b><br/>{data['improvements']}",
             styles["BodyText"]
         )
     )
 
-    content.append(Spacer(1, 10))
+    content.append(Spacer(1,10))
 
     content.append(
         Paragraph(
-            f"<b>Interview Summary</b><br/>{data['summary']}",
-            styles["BodyText"]
-        )
-    )
-
-    content.append(Spacer(1, 10))
-
-    content.append(
-        Paragraph(
-            f"<b>Final Recommendation:</b> {data['recommendation']}",
+            f"<b>Interview Summary:</b><br/>{data['summary']}",
             styles["BodyText"]
         )
     )
@@ -196,118 +190,70 @@ def generate_pdf(data):
     return pdf
 
 # =====================================================
-# HEADER
+# TABS
 # =====================================================
 
-st.markdown("""
-<h1 style='text-align:center;color:#00ABB2;margin-bottom:0;'>
-Interview Management Portal
-</h1>
-
-<p style='text-align:center;color:gray;margin-top:0;'>
-Candidate Tracking & Interview Assessment
-</p>
-""", unsafe_allow_html=True)
-
-st.divider()
+tab1, tab2 = st.tabs([
+    "📋 Candidate Tracker",
+    "📝 Interview Report"
+])
 
 # =====================================================
-# NAVIGATION
+# TAB 1
 # =====================================================
 
-page = st.radio(
-    "",
-    ["📋 Candidate Tracker", "📝 Interview Report"],
-    horizontal=True
-)
-
-# =====================================================
-# TRACKER PAGE
-# =====================================================
-
-if page == "📋 Candidate Tracker":
-
-    st.markdown("### Candidate Tracker")
-
-    st.caption(
-        "Manage candidates directly through the shared Google Sheet."
-    )
+with tab1:
 
     st.components.v1.iframe(
         GOOGLE_SHEET_URL,
-        height=700,
+        height=950,
         scrolling=True
     )
 
 # =====================================================
-# PDF PAGE
+# TAB 2
 # =====================================================
 
-if page == "📝 Interview Report":
-
-    st.markdown("### Interview Assessment Form")
-
-    # Candidate Info
+with tab2:
 
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        candidate_name = st.text_input("Candidate Name")
+        candidate_name = st.text_input("Candidate")
 
     with c2:
         position = st.text_input("Role")
 
     with c3:
-        interview_date = st.date_input("Interview Date")
+        interview_date = st.date_input("Date")
 
-    st.divider()
+    st.markdown("### Evaluation")
 
-    st.markdown("### Evaluation Scores")
+    r1, r2, r3 = st.columns(3)
 
-    # Ratings Grid
+    with r1:
+        communication = st.slider("Communication",1,10,5)
+        confidence = st.slider("Confidence",1,10,5)
 
-    col1, col2, col3 = st.columns(3)
+    with r2:
+        technical = st.slider("Technical",1,10,5)
+        learning = st.slider("Learning",1,10,5)
 
-    with col1:
-        communication = st.slider(
-            "Communication", 1, 10, 5
-        )
+    with r3:
+        problem_solving = st.slider("Problem Solving",1,10,5)
+        team_fit = st.slider("Team Fit",1,10,5)
 
-        confidence = st.slider(
-            "Confidence", 1, 10, 5
-        )
+    f1, f2 = st.columns(2)
 
-    with col2:
-        technical = st.slider(
-            "Technical Skills", 1, 10, 5
-        )
-
-        learning = st.slider(
-            "Learning Ability", 1, 10, 5
-        )
-
-    with col3:
-        problem_solving = st.slider(
-            "Problem Solving", 1, 10, 5
-        )
-
-        team_fit = st.slider(
-            "Team Fit", 1, 10, 5
-        )
-
-    st.divider()
-
-    feedback1, feedback2 = st.columns(2)
-
-    with feedback1:
+    with f1:
         strengths = st.text_area(
             "Strengths",
             height=120
         )
 
-    with feedback2:
+    with f2:
         improvements = st.text_area(
-            "Areas of Improvement",
+            "Areas for Improvement",
             height=120
         )
 
@@ -322,14 +268,7 @@ if page == "📝 Interview Report":
         horizontal=True
     )
 
-    st.divider()
-
-    generate = st.button(
-        "📄 Generate Interview Report",
-        use_container_width=True
-    )
-
-    if generate:
+    if st.button("📄 Generate Interview Report"):
 
         pdf_data = {
             "candidate_name": candidate_name,
@@ -349,20 +288,15 @@ if page == "📝 Interview Report":
 
         pdf_file = generate_pdf(pdf_data)
 
-        st.success(
-            "Interview report generated successfully."
-        )
-
         filename = (
-            candidate_name.strip().replace(" ", "_")
+            candidate_name.replace(" ", "_")
             if candidate_name
             else "Candidate"
         )
 
         st.download_button(
-            label="⬇ Download PDF",
-            data=pdf_file,
+            "⬇ Download PDF",
+            pdf_file,
             file_name=f"{filename}_Interview_Report.pdf",
-            mime="application/pdf",
-            use_container_width=True,
+            mime="application/pdf"
         )
