@@ -1,5 +1,7 @@
 import streamlit as st
 from io import BytesIO
+from urllib.request import urlopen
+import pandas as pd
 from reportlab.lib import colors
 from reportlab.platypus import (
     SimpleDocTemplate,
@@ -96,8 +98,76 @@ div[role="radiogroup"]{
 
 GOOGLE_SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/"
-    "1cGGZbxaqICQYL3swSLlU56qRDFCnRpaUIoUIkbKygcI/edit?rm=minimal"
+    "1cGGZbxaqICQYL3swSLlU56qRDFCnRpaUIoUIkbKygcI/edit?usp=sharing"
 )
+
+# CSV export endpoint of the candidate tracker sheet page (used for the live table)
+SHEET_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1cGGZbxaqICQYL3swSLlU56qRDFCnRpaUIoUIkbKygcI/export?format=csv&gid=0"
+)
+
+@st.cache_data(ttl=300)  # refresh sheet data every 5 minutes
+def load_sheet_data():
+    with urlopen(SHEET_CSV_URL, timeout=30) as response:
+        csv_bytes = response.read()
+    df = pd.read_csv(BytesIO(csv_bytes))
+
+    # Clean up empty rows/stray whitespace and drop trailing empty columns
+    df = df.dropna(how="all")
+    df = df.drop(columns=[c for c in df.columns if str(c).startswith("Unnamed")])
+    df.columns = [str(c).strip() for c in df.columns]
+    for col in df.columns:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str).str.strip().replace({"nan": ""})
+
+    return df
+
+def show_sheet_page():
+    st.markdown("### 📊 Candidate Sheet Data")
+    st.caption(f"Live view of the tracker sheet — auto-refreshes every 5 minutes. "
+               f"[Open the full sheet in Google Sheets]({GOOGLE_SHEET_URL})")
+
+    try:
+        df = load_sheet_data()
+    except Exception as e:
+        st.error(f"Could not load the sheet: {e}")
+        st.link_button("🔗 Open Google Sheet", GOOGLE_SHEET_URL)
+        return
+
+    # Quick summary metrics
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Total Candidates", len(df))
+    with m2:
+        done = df["Status"].str.contains("done", case=False, na=False).sum()
+        st.metric("Done", int(done))
+    with m3:
+        ghosted = df["Status"].str.contains("ghost", case=False, na=False).sum()
+        st.metric("Ghosted", int(ghosted))
+    with m4:
+        pending = df["Status"].isna().sum() + (df["Status"] == "").sum()
+        st.metric("Pending", int(pending))
+
+    st.markdown("")
+
+    search = st.text_input("🔎 Search candidate, status or comment")
+    if search:
+        mask = df.apply(
+            lambda row: row.astype(str).str.contains(search, case=False).any(),
+            axis=1,
+        )
+        df = df[mask]
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=620,
+        column_config={
+            "Meet Link": st.column_config.LinkColumn("Meet Link"),
+            "Status": st.column_config.TextColumn("Status"),
+        },
+    )
 
 # =====================================================
 # PDF FUNCTION
@@ -193,8 +263,9 @@ def generate_pdf(data):
 # TABS
 # =====================================================
 
-tab1, tab2 = st.tabs([
+tab1, tab2, tab3 = st.tabs([
     "📋 Candidate Tracker",
+    "📊 Candidate Sheet Data",
     "📝 Interview Report"
 ])
 
@@ -300,3 +371,10 @@ with tab2:
             file_name=f"{filename}_Interview_Report.pdf",
             mime="application/pdf"
         )
+
+# =====================================================
+# TAB 3 — GOOGLE SHEET LIVE TABLE
+# =====================================================
+
+with tab3:
+    show_sheet_page()
